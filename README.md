@@ -2,7 +2,9 @@
 Takes screen shots of a set of URLs that display operational metrics for test infrastructure
 that runs CI for the Kubernetes project.
 
-Screenshots taken as PNG files are placed in the screenshots directory
+Screenshots taken as PNG files are placed in the screenshots directory as follows
+
+```/screenshots/<JOB_NAME>/<DATE><PAGE_TITLE>.png```
 
 ## Getting started
 Run the following commands at shell
