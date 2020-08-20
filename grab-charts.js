@@ -23,19 +23,16 @@ var argv = yargs
         }
     })
     .argv;
-// TODO Ultimate goal would be for this code to be able to name the metrics that are being grabbed screen shotting URLs
-// TODO Could also lift corresponding test-infra commits
-// TODO Parameterise this script on Prow Job name instead of hardcoding it in these URLs
-var metrics = {
-     "prow-status":"https://prow.k8s.io/?job=pull-kubernetes-e2e-gce-network-proxy-http-connect" ,
-     "duration":"https://testgrid.k8s.io/presubmits-kubernetes-blocking#pull-kubernetes-e2e-gce-network-proxy-http-connect&graph-metrics=test-duration-minutes",
-     "aggregated-errors":"https://storage.googleapis.com/k8s-gubernator/triage/index.html?pr=1&job=pull-kubernetes-e2e-gce-network-proxy-http-connect",
-     "result-history":"https://prow.k8s.io/job-history/gs/kubernetes-jenkins/pr-logs/directory/pull-kubernetes-e2e-gce-network-proxy-http-connect",
-     "build-cluster":"https://monitoring.prow.k8s.io/d/wSrfvNxWz/boskos-resource-usage?orgId=1",
-};
 
 function slugify(str) {
-    return str.replace(/[\/:]/g, '_');
+    return str.replace(/[\/: ]/g, '_');
+}
+
+function humanReadableDate(date) {
+    const dateTimeFormat = new Intl.DateTimeFormat('en', { year: 'numeric', month: 'short', day: '2-digit' });
+    const [{ value: month },,{ value: day },,{ value: year }] = dateTimeFormat .formatToParts(date );
+
+    return `${day}-${month}-${year }`;
 }
 function getJobUrls(job) {
     return urls = [
@@ -70,13 +67,17 @@ const sleep = (timeout) => new Promise(r => setTimeout(r, timeout));
 (async () => {
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
-    const urls = getJobUrls(argv.job)
+    const urls = getJobUrls(argv.job);
 
     const screen = await page.evaluate(() => {
         return {width: window.screen.availWidth, height: window.screen.availHeight};
     });
     await browser.close();
     const pages = await Promise.all(urls.map((url, i) => launch()));
+
+    if (!fs.existsSync('./screenshots/'+argv.job)){
+        fs.mkdirSync('./screenshots/'+argv.job);
+    }
 
     const start = Date.now();
 
@@ -92,7 +93,7 @@ const sleep = (timeout) => new Promise(r => setTimeout(r, timeout));
         const page = pages[pos];
         await page._client.send('Emulation.clearDeviceMetricsOverride');
         const url = urls[pos];
-        const path = `./screenshots/${slugify(Date.now() + await page.title())}.png`;
+        const path = `./screenshots/${argv.job}/${slugify(humanReadableDate(Date.now()) + await page.title())}.png`;
         let imgBuff = await page.screenshot({fullPage: true});
         imgBuff = await sharp(imgBuff).toBuffer();
         page.img = `data:img/png;base64,${imgBuff.toString('base64')}`;
