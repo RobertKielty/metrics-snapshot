@@ -2,7 +2,27 @@ const fs = require ('fs');
 const util = require('util');
 const puppeteer = require('puppeteer');
 const sharp = require('sharp');
-
+const yargs = require('yargs');
+var argv = yargs
+    .usage('grabs screen shots of metrics that of a specified Prow Job\n\nUsage: $0 [options]')
+    .help('help').alias('help', 'h')
+    .version('version', '0.0.1').alias('version', 'V')
+    .options({
+        job: {
+            alias: 'j',
+            description: "<name> Prow Job name",
+            requiresArg: true,
+            required: true
+        },
+        output: {
+            alias: 'o',
+            default: './screenshots',
+            description: "<dirname> output directory name",
+            requiresArg: true,
+            required: false
+        }
+    })
+    .argv;
 // TODO Ultimate goal would be for this code to be able to name the metrics that are being grabbed screen shotting URLs
 // TODO Could also lift corresponding test-infra commits
 // TODO Parameterise this script on Prow Job name instead of hardcoding it in these URLs
@@ -17,19 +37,20 @@ var metrics = {
 function slugify(str) {
     return str.replace(/[\/:]/g, '_');
 }
-// For now we just add the URLS with hardcoded job names
-const urls = [
-    'https://prow.k8s.io/?job=pull-kubernetes-e2e-gce-network-proxy-http-connect' ,
-    'https://testgrid.k8s.io/presubmits-kubernetes-blocking#pull-kubernetes-e2e-gce-network-proxy-http-connect&graph-metrics=test-duration-minutes',
-    'https://storage.googleapis.com/k8s-gubernator/triage/index.html?pr=1&job=pull-kubernetes-e2e-gce-network-proxy-http-connect',
-    'https://prow.k8s.io/job-history/gs/kubernetes-jenkins/pr-logs/directory/pull-kubernetes-e2e-gce-network-proxy-http-connect',
-    'https://monitoring.prow.k8s.io/d/wSrfvNxWz/boskos-resource-usage?orgId=1',
-//    'https://monitoring.prow.k8s.io/d/wSrfvNxWz/boskos-resource-usage?orgId=1&from=now-7d&to=nowys&kiosk',
-];
+function getJobUrls(job) {
+    return urls = [
+        `https://prow.k8s.io/?job=${job}` ,
+        `https://testgrid.k8s.io/presubmits-kubernetes-blocking#${job}&graph-metrics=test-duration-minutes`,
+        `https://storage.googleapis.com/k8s-gubernator/triage/index.html?pr=1&${job}`,
+        `https://prow.k8s.io/job-history/gs/kubernetes-jenkins/pr-logs/directory/${job}`,
+        `https://monitoring.prow.k8s.io/d/wSrfvNxWz/boskos-resource-usage?orgId=1`,
+    ];
+    return urls;
+}
 
 const TIMEOUT_AFTER_LOAD = 3000 ;
 
-async function launch() { //position, screen) {
+async function launch() { 
 
    const browser = await puppeteer.launch({
        headless: false,
@@ -49,6 +70,7 @@ const sleep = (timeout) => new Promise(r => setTimeout(r, timeout));
 (async () => {
     const browser = await puppeteer.launch();
     const page = await browser.newPage();
+    const urls = getJobUrls(argv.job)
 
     const screen = await page.evaluate(() => {
         return {width: window.screen.availWidth, height: window.screen.availHeight};
